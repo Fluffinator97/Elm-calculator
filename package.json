@@ -1,0 +1,11 @@
+{
+  "name": "elm-calculator",
+    "scripts": {
+        "build": "mkdir -p dist && elm make src/Main.elm --optimize --output=dist/elm.js && cp index.html dist && cp style.css dist"
+    },
+  "devDependencies": {
+    "elm-live": "^4.0.2",
+    "elm-test": "^0.19.0-rev6",
+    "tailwindcss": "^3.0.24"
+  }
+}
