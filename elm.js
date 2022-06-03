@@ -5267,13 +5267,12 @@ var $author$project$Test$init = function (_v0) {
 		{
 			append: true,
 			darkTheme: false,
-			displayValue: '',
-			_function: F2(
-				function (x, y) {
-					return y;
-				}),
+			input: $elm$core$Maybe$Nothing,
+			key: '',
 			lastValue: $elm$core$Maybe$Nothing,
+			selectedOperator: $elm$core$Maybe$Nothing,
 			time: $elm$time$Time$millisToPosix(0),
+			total: 0,
 			zone: $elm$time$Time$utc
 		},
 		A2($elm$core$Task$perform, $author$project$Test$AdjustTimeZone, $elm$time$Time$here));
@@ -5281,6 +5280,7 @@ var $author$project$Test$init = function (_v0) {
 var $author$project$Test$Tick = function (a) {
 	return {$: 'Tick', a: a};
 };
+var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$time$Time$Every = F2(
 	function (a, b) {
 		return {$: 'Every', a: a, b: b};
@@ -5681,13 +5681,245 @@ var $elm$time$Time$every = F2(
 		return $elm$time$Time$subscription(
 			A2($elm$time$Time$Every, interval, tagger));
 	});
-var $author$project$Test$subscriptions = function (model) {
-	return A2($elm$time$Time$every, 1000, $author$project$Test$Tick);
+var $elm$json$Json$Decode$field = _Json_decodeField;
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Test$CharacterKey = function (a) {
+	return {$: 'CharacterKey', a: a};
 };
+var $author$project$Test$ControlKey = function (a) {
+	return {$: 'ControlKey', a: a};
+};
+var $author$project$Test$toKey = function (keyValue) {
+	var _v0 = $elm$core$String$uncons(keyValue);
+	if ((_v0.$ === 'Just') && (_v0.a.b === '')) {
+		var _v1 = _v0.a;
+		var _char = _v1.a;
+		return $author$project$Test$CharacterKey(_char);
+	} else {
+		return $author$project$Test$ControlKey(keyValue);
+	}
+};
+var $author$project$Test$keyDecoder = A2(
+	$elm$json$Json$Decode$map,
+	$author$project$Test$toKey,
+	A2($elm$json$Json$Decode$field, 'key', $elm$json$Json$Decode$string));
+var $elm$browser$Browser$Events$Document = {$: 'Document'};
+var $elm$browser$Browser$Events$MySub = F3(
+	function (a, b, c) {
+		return {$: 'MySub', a: a, b: b, c: c};
+	});
+var $elm$browser$Browser$Events$State = F2(
+	function (subs, pids) {
+		return {pids: pids, subs: subs};
+	});
+var $elm$browser$Browser$Events$init = $elm$core$Task$succeed(
+	A2($elm$browser$Browser$Events$State, _List_Nil, $elm$core$Dict$empty));
+var $elm$browser$Browser$Events$nodeToKey = function (node) {
+	if (node.$ === 'Document') {
+		return 'd_';
+	} else {
+		return 'w_';
+	}
+};
+var $elm$browser$Browser$Events$addKey = function (sub) {
+	var node = sub.a;
+	var name = sub.b;
+	return _Utils_Tuple2(
+		_Utils_ap(
+			$elm$browser$Browser$Events$nodeToKey(node),
+			name),
+		sub);
+};
+var $elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (_v0, dict) {
+				var key = _v0.a;
+				var value = _v0.b;
+				return A3($elm$core$Dict$insert, key, value, dict);
+			}),
+		$elm$core$Dict$empty,
+		assocs);
+};
+var $elm$browser$Browser$Events$Event = F2(
+	function (key, event) {
+		return {event: event, key: key};
+	});
+var $elm$browser$Browser$Events$spawn = F3(
+	function (router, key, _v0) {
+		var node = _v0.a;
+		var name = _v0.b;
+		var actualNode = function () {
+			if (node.$ === 'Document') {
+				return _Browser_doc;
+			} else {
+				return _Browser_window;
+			}
+		}();
+		return A2(
+			$elm$core$Task$map,
+			function (value) {
+				return _Utils_Tuple2(key, value);
+			},
+			A3(
+				_Browser_on,
+				actualNode,
+				name,
+				function (event) {
+					return A2(
+						$elm$core$Platform$sendToSelf,
+						router,
+						A2($elm$browser$Browser$Events$Event, key, event));
+				}));
+	});
+var $elm$core$Dict$union = F2(
+	function (t1, t2) {
+		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
+	});
+var $elm$browser$Browser$Events$onEffects = F3(
+	function (router, subs, state) {
+		var stepRight = F3(
+			function (key, sub, _v6) {
+				var deads = _v6.a;
+				var lives = _v6.b;
+				var news = _v6.c;
+				return _Utils_Tuple3(
+					deads,
+					lives,
+					A2(
+						$elm$core$List$cons,
+						A3($elm$browser$Browser$Events$spawn, router, key, sub),
+						news));
+			});
+		var stepLeft = F3(
+			function (_v4, pid, _v5) {
+				var deads = _v5.a;
+				var lives = _v5.b;
+				var news = _v5.c;
+				return _Utils_Tuple3(
+					A2($elm$core$List$cons, pid, deads),
+					lives,
+					news);
+			});
+		var stepBoth = F4(
+			function (key, pid, _v2, _v3) {
+				var deads = _v3.a;
+				var lives = _v3.b;
+				var news = _v3.c;
+				return _Utils_Tuple3(
+					deads,
+					A3($elm$core$Dict$insert, key, pid, lives),
+					news);
+			});
+		var newSubs = A2($elm$core$List$map, $elm$browser$Browser$Events$addKey, subs);
+		var _v0 = A6(
+			$elm$core$Dict$merge,
+			stepLeft,
+			stepBoth,
+			stepRight,
+			state.pids,
+			$elm$core$Dict$fromList(newSubs),
+			_Utils_Tuple3(_List_Nil, $elm$core$Dict$empty, _List_Nil));
+		var deadPids = _v0.a;
+		var livePids = _v0.b;
+		var makeNewPids = _v0.c;
+		return A2(
+			$elm$core$Task$andThen,
+			function (pids) {
+				return $elm$core$Task$succeed(
+					A2(
+						$elm$browser$Browser$Events$State,
+						newSubs,
+						A2(
+							$elm$core$Dict$union,
+							livePids,
+							$elm$core$Dict$fromList(pids))));
+			},
+			A2(
+				$elm$core$Task$andThen,
+				function (_v1) {
+					return $elm$core$Task$sequence(makeNewPids);
+				},
+				$elm$core$Task$sequence(
+					A2($elm$core$List$map, $elm$core$Process$kill, deadPids))));
+	});
+var $elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _v0 = f(mx);
+		if (_v0.$ === 'Just') {
+			var x = _v0.a;
+			return A2($elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var $elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			$elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var $elm$browser$Browser$Events$onSelfMsg = F3(
+	function (router, _v0, state) {
+		var key = _v0.key;
+		var event = _v0.event;
+		var toMessage = function (_v2) {
+			var subKey = _v2.a;
+			var _v3 = _v2.b;
+			var node = _v3.a;
+			var name = _v3.b;
+			var decoder = _v3.c;
+			return _Utils_eq(subKey, key) ? A2(_Browser_decodeEvent, decoder, event) : $elm$core$Maybe$Nothing;
+		};
+		var messages = A2($elm$core$List$filterMap, toMessage, state.subs);
+		return A2(
+			$elm$core$Task$andThen,
+			function (_v1) {
+				return $elm$core$Task$succeed(state);
+			},
+			$elm$core$Task$sequence(
+				A2(
+					$elm$core$List$map,
+					$elm$core$Platform$sendToApp(router),
+					messages)));
+	});
+var $elm$browser$Browser$Events$subMap = F2(
+	function (func, _v0) {
+		var node = _v0.a;
+		var name = _v0.b;
+		var decoder = _v0.c;
+		return A3(
+			$elm$browser$Browser$Events$MySub,
+			node,
+			name,
+			A2($elm$json$Json$Decode$map, func, decoder));
+	});
+_Platform_effectManagers['Browser.Events'] = _Platform_createManager($elm$browser$Browser$Events$init, $elm$browser$Browser$Events$onEffects, $elm$browser$Browser$Events$onSelfMsg, 0, $elm$browser$Browser$Events$subMap);
+var $elm$browser$Browser$Events$subscription = _Platform_leaf('Browser.Events');
+var $elm$browser$Browser$Events$on = F3(
+	function (node, name, decoder) {
+		return $elm$browser$Browser$Events$subscription(
+			A3($elm$browser$Browser$Events$MySub, node, name, decoder));
+	});
+var $elm$browser$Browser$Events$onKeyPress = A2($elm$browser$Browser$Events$on, $elm$browser$Browser$Events$Document, 'keypress');
+var $author$project$Test$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				A2($elm$time$Time$every, 1000, $author$project$Test$Tick),
+				$elm$browser$Browser$Events$onKeyPress($author$project$Test$keyDecoder)
+			]));
+};
+var $author$project$Test$Add = {$: 'Add'};
+var $author$project$Test$Divide = {$: 'Divide'};
+var $author$project$Test$Minus = {$: 'Minus'};
 var $author$project$Test$RandomNumber = function (a) {
 	return {$: 'RandomNumber', a: a};
 };
-var $elm$core$String$fromFloat = _String_fromNumber;
+var $author$project$Test$Times = {$: 'Times'};
 var $elm$random$Random$Generate = function (a) {
 	return {$: 'Generate', a: a};
 };
@@ -5821,9 +6053,6 @@ var $elm$random$Random$int = F2(
 				}
 			});
 	});
-var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $elm$core$Basics$not = _Basics_not;
 var $elm$core$String$toFloat = _String_toFloat;
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
@@ -5834,184 +6063,493 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Test$parseFloat = function (input) {
-	return A2(
-		$elm$core$Maybe$withDefault,
-		0,
-		$elm$core$String$toFloat(input));
+var $author$project$Test$maybeStringToMaybeFloat = function (input) {
+	return $elm$core$String$toFloat(
+		A2($elm$core$Maybe$withDefault, '', input));
 };
+var $elm$core$Platform$Cmd$batch = _Platform_batch;
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
+var $elm$core$Basics$not = _Basics_not;
 var $author$project$Test$update = F2(
 	function (msg, model) {
-		var operation = function (_function) {
-			return _Utils_update(
-				model,
-				{
-					append: false,
-					_function: _function,
-					lastValue: $elm$core$Maybe$Just(
-						$author$project$Test$parseFloat(model.displayValue))
-				});
-		};
-		var calculator = {
-			add: F2(
-				function (x, y) {
-					return x + y;
-				}),
-			divide: F2(
-				function (x, y) {
-					return x / y;
-				}),
-			minus: F2(
-				function (x, y) {
-					return x - y;
-				}),
-			times: F2(
-				function (x, y) {
-					return x * y;
-				})
-		};
-		var calculate = $elm$core$String$fromFloat(
-			A2(
-				model._function,
-				A2($elm$core$Maybe$withDefault, 0, model.lastValue),
-				$author$project$Test$parseFloat(model.displayValue)));
 		var appendDecimal = function (string) {
 			return A2($elm$core$String$contains, '.', string) ? string : (string + '.');
 		};
-		switch (msg.$) {
-			case 'None':
-				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-			case 'Clear':
-				return _Utils_Tuple2(
-					_Utils_update(
+		_v0$30:
+		while (true) {
+			switch (msg.$) {
+				case 'None':
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				case 'Clear':
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{input: $elm$core$Maybe$Nothing, lastValue: $elm$core$Maybe$Nothing, total: 0}),
+						$elm$core$Platform$Cmd$none);
+				case 'Number':
+					var number = msg.a;
+					return model.append ? _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								input: $elm$core$Maybe$Just(
+									_Utils_ap(
+										A2($elm$core$Maybe$withDefault, '', model.input),
+										$elm$core$String$fromInt(number))),
+								total: 0
+							}),
+						$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: true,
+								input: $elm$core$Maybe$Just(
+									$elm$core$String$fromInt(number)),
+								total: 0
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'Decimal':
+					return ((!$elm$core$String$isEmpty(
+						A2($elm$core$Maybe$withDefault, '', model.input))) && model.append) ? _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								input: $elm$core$Maybe$Just(
+									appendDecimal(
+										A2($elm$core$Maybe$withDefault, '', model.input)))
+							}),
+						$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: true,
+								input: $elm$core$Maybe$Just('0.')
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'Zero':
+					return ($elm$core$String$isEmpty(
+						A2($elm$core$Maybe$withDefault, '', model.input)) || (!model.append)) ? _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: false,
+								input: $elm$core$Maybe$Just('0')
+							}),
+						$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								input: $elm$core$Maybe$Just(
+									A2($elm$core$Maybe$withDefault, '', model.input) + '0')
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'DivideMsg':
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: false,
+								lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+								selectedOperator: $elm$core$Maybe$Just($author$project$Test$Divide)
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'TimesMsg':
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: false,
+								lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+								selectedOperator: $elm$core$Maybe$Just($author$project$Test$Times)
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'MinusMsg':
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: false,
+								lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+								selectedOperator: $elm$core$Maybe$Just($author$project$Test$Minus)
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'AddMsg':
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: false,
+								lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+								selectedOperator: $elm$core$Maybe$Just($author$project$Test$Add)
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'Equal':
+					var lastValue = A2($elm$core$Maybe$withDefault, 0, model.lastValue);
+					var input = A2(
+						$elm$core$Maybe$withDefault,
+						0,
+						$author$project$Test$maybeStringToMaybeFloat(model.input));
+					var sum = function () {
+						var _v1 = model.selectedOperator;
+						if (_v1.$ === 'Nothing') {
+							return 0;
+						} else {
+							switch (_v1.a.$) {
+								case 'Add':
+									var _v2 = _v1.a;
+									return lastValue + input;
+								case 'Minus':
+									var _v3 = _v1.a;
+									return lastValue - input;
+								case 'Times':
+									var _v4 = _v1.a;
+									return lastValue * input;
+								default:
+									var _v5 = _v1.a;
+									return lastValue / input;
+							}
+						}
+					}();
+					return model.append ? _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{append: false, input: $elm$core$Maybe$Nothing, lastValue: $elm$core$Maybe$Nothing, selectedOperator: $elm$core$Maybe$Nothing, total: sum}),
+						$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{append: false, input: $elm$core$Maybe$Nothing, lastValue: $elm$core$Maybe$Nothing, selectedOperator: $elm$core$Maybe$Nothing, total: sum}),
+						$elm$core$Platform$Cmd$none);
+				case 'GenerateRandomNumber':
+					return _Utils_Tuple2(
 						model,
-						{displayValue: '', lastValue: $elm$core$Maybe$Nothing}),
-					$elm$core$Platform$Cmd$none);
-			case 'Number':
-				var number = msg.a;
-				return model.append ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							displayValue: _Utils_ap(
-								model.displayValue,
-								$elm$core$String$fromInt(number))
-						}),
-					$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							append: true,
-							displayValue: $elm$core$String$fromInt(number)
-						}),
-					$elm$core$Platform$Cmd$none);
-			case 'Decimal':
-				return ((!$elm$core$String$isEmpty(model.displayValue)) && model.append) ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							displayValue: appendDecimal(model.displayValue)
-						}),
-					$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{append: true, displayValue: '0.'}),
-					$elm$core$Platform$Cmd$none);
-			case 'Zero':
-				return ($elm$core$String$isEmpty(model.displayValue) || (!model.append)) ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{append: false, displayValue: '0'}),
-					$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{displayValue: model.displayValue + '0'}),
-					$elm$core$Platform$Cmd$none);
-			case 'Divide':
-				return _Utils_Tuple2(
-					operation(calculator.divide),
-					$elm$core$Platform$Cmd$none);
-			case 'Times':
-				return _Utils_Tuple2(
-					operation(calculator.times),
-					$elm$core$Platform$Cmd$none);
-			case 'Minus':
-				return _Utils_Tuple2(
-					operation(calculator.minus),
-					$elm$core$Platform$Cmd$none);
-			case 'Add':
-				return _Utils_Tuple2(
-					operation(calculator.add),
-					$elm$core$Platform$Cmd$none);
-			case 'Equal':
-				return model.append ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							append: false,
-							displayValue: calculate,
-							lastValue: $elm$core$Maybe$Just(
-								$author$project$Test$parseFloat(model.displayValue))
-						}),
-					$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{append: false, displayValue: calculate}),
-					$elm$core$Platform$Cmd$none);
-			case 'GenerateRandomNumber':
-				return _Utils_Tuple2(
-					model,
-					A2(
-						$elm$random$Random$generate,
-						$author$project$Test$RandomNumber,
-						A2($elm$random$Random$int, 0, 1000)));
-			case 'RandomNumber':
-				var number = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							append: false,
-							displayValue: $elm$core$String$fromInt(number),
-							lastValue: $elm$core$Maybe$Just(
-								$author$project$Test$parseFloat(model.displayValue))
-						}),
-					$elm$core$Platform$Cmd$none);
-			case 'Tick':
-				var newTime = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{time: newTime}),
-					$elm$core$Platform$Cmd$none);
-			case 'AdjustTimeZone':
-				var newZone = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{zone: newZone}),
-					$elm$core$Platform$Cmd$none);
-			default:
-				var changeMode = model.darkTheme ? false : true;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{darkTheme: changeMode}),
-					$elm$core$Platform$Cmd$none);
+						A2(
+							$elm$random$Random$generate,
+							$author$project$Test$RandomNumber,
+							A2($elm$random$Random$int, 0, 1000)));
+				case 'RandomNumber':
+					var number = msg.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								append: false,
+								input: $elm$core$Maybe$Just(
+									$elm$core$String$fromInt(number)),
+								lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input)
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'Tick':
+					var newTime = msg.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{time: newTime}),
+						$elm$core$Platform$Cmd$none);
+				case 'AdjustTimeZone':
+					var newZone = msg.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{zone: newZone}),
+						$elm$core$Platform$Cmd$none);
+				case 'DarkMode':
+					var changeMode = model.darkTheme ? false : true;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{darkTheme: changeMode}),
+						$elm$core$Platform$Cmd$none);
+				case 'CharacterKey':
+					switch (msg.a.valueOf()) {
+						case '1':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '1'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(1)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '2':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '2'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(2)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '3':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '3'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(3)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '4':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '4'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(4)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '5':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '5'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(5)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '6':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '6'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(6)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '7':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '7'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(7)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '8':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '8'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(8)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '9':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '9'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(9)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '0':
+							return model.append ? _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										input: $elm$core$Maybe$Just(
+											A2($elm$core$Maybe$withDefault, '', model.input) + '0'),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: true,
+										input: $elm$core$Maybe$Just(
+											$elm$core$String$fromInt(0)),
+										total: 0
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '*':
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: false,
+										lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+										selectedOperator: $elm$core$Maybe$Just($author$project$Test$Times)
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '/':
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: false,
+										lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+										selectedOperator: $elm$core$Maybe$Just($author$project$Test$Divide)
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '+':
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: false,
+										lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+										selectedOperator: $elm$core$Maybe$Just($author$project$Test$Add)
+									}),
+								$elm$core$Platform$Cmd$none);
+						case '-':
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										append: false,
+										lastValue: $author$project$Test$maybeStringToMaybeFloat(model.input),
+										selectedOperator: $elm$core$Maybe$Just($author$project$Test$Minus)
+									}),
+								$elm$core$Platform$Cmd$none);
+						default:
+							break _v0$30;
+					}
+				default:
+					if (msg.a === 'Enter') {
+						var lastValue = A2($elm$core$Maybe$withDefault, 0, model.lastValue);
+						var input = A2(
+							$elm$core$Maybe$withDefault,
+							0,
+							$author$project$Test$maybeStringToMaybeFloat(model.input));
+						var sum = function () {
+							var _v6 = model.selectedOperator;
+							if (_v6.$ === 'Nothing') {
+								return 0;
+							} else {
+								switch (_v6.a.$) {
+									case 'Add':
+										var _v7 = _v6.a;
+										return lastValue + input;
+									case 'Minus':
+										var _v8 = _v6.a;
+										return lastValue - input;
+									case 'Times':
+										var _v9 = _v6.a;
+										return lastValue * input;
+									default:
+										var _v10 = _v6.a;
+										return lastValue / input;
+								}
+							}
+						}();
+						return model.append ? _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{append: false, input: $elm$core$Maybe$Nothing, lastValue: $elm$core$Maybe$Nothing, selectedOperator: $elm$core$Maybe$Nothing, total: sum}),
+							$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{append: false, input: $elm$core$Maybe$Nothing, lastValue: $elm$core$Maybe$Nothing, selectedOperator: $elm$core$Maybe$Nothing, total: sum}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						break _v0$30;
+					}
+			}
 		}
+		return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 	});
-var $author$project$Test$Add = {$: 'Add'};
+var $author$project$Test$AddMsg = {$: 'AddMsg'};
 var $author$project$Test$Clear = {$: 'Clear'};
 var $author$project$Test$DarkMode = {$: 'DarkMode'};
 var $author$project$Test$Decimal = {$: 'Decimal'};
-var $author$project$Test$Divide = {$: 'Divide'};
+var $author$project$Test$DivideMsg = {$: 'DivideMsg'};
 var $author$project$Test$Equal = {$: 'Equal'};
 var $author$project$Test$GenerateRandomNumber = {$: 'GenerateRandomNumber'};
-var $author$project$Test$Minus = {$: 'Minus'};
+var $author$project$Test$MinusMsg = {$: 'MinusMsg'};
 var $author$project$Test$Number = function (a) {
 	return {$: 'Number', a: a};
 };
-var $author$project$Test$Times = {$: 'Times'};
+var $author$project$Test$TimesMsg = {$: 'TimesMsg'};
 var $author$project$Test$Zero = {$: 'Zero'};
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$html$Html$Attributes$stringProperty = F2(
@@ -6074,7 +6612,7 @@ var $author$project$Test$clearButton = F2(
 			$elm$html$Html$button,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('button operator w-full p-10 bg-slate-200 dark:bg-slate-900 h-full dark:text-white'),
+					$elm$html$Html$Attributes$class('button operator w-full bg-slate-200 dark:bg-slate-800 h-full dark:text-white'),
 					$elm$html$Html$Events$onClick(onClick)
 				]),
 			_List_fromArray(
@@ -6095,6 +6633,7 @@ var $elm$html$Html$Attributes$colspan = function (n) {
 		$elm$core$String$fromInt(n));
 };
 var $elm$html$Html$div = _VirtualDom_node('div');
+var $elm$core$String$fromFloat = _String_fromNumber;
 var $elm$html$Html$h1 = _VirtualDom_node('h1');
 var $author$project$Test$primaryButton = F2(
 	function (onClick, label) {
@@ -6102,7 +6641,7 @@ var $author$project$Test$primaryButton = F2(
 			$elm$html$Html$button,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('button number w-full p-10 bg-slate-100 dark:bg-slate-600 h-full dark:text-white'),
+					$elm$html$Html$Attributes$class('button number w-full bg-slate-100 dark:bg-slate-600 h-full dark:text-white'),
 					$elm$html$Html$Events$onClick(onClick)
 				]),
 			_List_fromArray(
@@ -6116,13 +6655,18 @@ var $author$project$Test$primaryButton = F2(
 						]))
 				]));
 	});
-var $author$project$Test$secondaryButton = F2(
-	function (onClick, label) {
+var $author$project$Test$secondaryButton = F3(
+	function (onClick, label, isTarget) {
 		return A2(
 			$elm$html$Html$button,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('button operator w-full p-10 bg-slate-200 dark:bg-slate-900 h-full dark:text-white'),
+					$elm$html$Html$Attributes$classList(
+					_List_fromArray(
+						[
+							_Utils_Tuple2('button operator w-full bg-slate-200 dark:bg-slate-800 h-full dark:text-white ', true),
+							_Utils_Tuple2('target', isTarget)
+						])),
 					$elm$html$Html$Events$onClick(onClick)
 				]),
 			_List_fromArray(
@@ -6225,8 +6769,8 @@ var $author$project$Test$view = function (model) {
 				$elm$html$Html$Attributes$classList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('table-fixed w-full h-screen', true),
-						_Utils_Tuple2('dark', model.darkTheme)
+						_Utils_Tuple2('table-fixed w-full h-screen border-collapse', true),
+						_Utils_Tuple2('dark bg-zinc-900', model.darkTheme)
 					]))
 			]),
 		_List_fromArray(
@@ -6261,30 +6805,74 @@ var $author$project$Test$view = function (model) {
 												$elm$html$Html$div,
 												_List_fromArray(
 													[
-														$elm$html$Html$Attributes$class('display-text h-20 bg-slate-200 dark:bg-slate-600 dark:text-white')
+														$elm$html$Html$Attributes$class('display-text h-20 bg-slate-200 dark:bg-slate-500 dark:text-white flex-display')
 													]),
 												_List_fromArray(
 													[
-														function () {
-														var _v0 = model.lastValue;
-														if (_v0.$ === 'Nothing') {
-															return $elm$html$Html$text('');
-														} else {
-															var lastValue = _v0.a;
-															return $elm$html$Html$text(
-																$elm$core$String$fromFloat(lastValue));
-														}
-													}()
+														A2(
+														$elm$html$Html$div,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text('Result ')
+															])),
+														A2(
+														$elm$html$Html$div,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text(
+																$elm$core$String$fromFloat(model.total))
+															]))
 													])),
 												A2(
 												$elm$html$Html$div,
 												_List_fromArray(
 													[
-														$elm$html$Html$Attributes$class('display-text h-20 bg-slate-200 dark:bg-slate-600 dark:text-white')
+														$elm$html$Html$Attributes$class('display-text h-20 bg-slate-300 dark:bg-slate-600 dark:text-white flex-display')
 													]),
 												_List_fromArray(
 													[
-														$elm$html$Html$text(model.displayValue)
+														A2(
+														$elm$html$Html$div,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text('Last Value ')
+															])),
+														A2(
+														$elm$html$Html$div,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text(
+																$elm$core$String$fromFloat(
+																	A2($elm$core$Maybe$withDefault, 0, model.lastValue)))
+															]))
+													])),
+												A2(
+												$elm$html$Html$div,
+												_List_fromArray(
+													[
+														$elm$html$Html$Attributes$class('display-text h-20 bg-slate-400 dark:bg-slate-700 dark:text-white flex-display')
+													]),
+												_List_fromArray(
+													[
+														A2(
+														$elm$html$Html$div,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text('Input ')
+															])),
+														A2(
+														$elm$html$Html$div,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text(
+																A2($elm$core$Maybe$withDefault, '0', model.input))
+															]))
 													]))
 											]))
 									]))
@@ -6304,7 +6892,7 @@ var $author$project$Test$view = function (model) {
 								$elm$html$Html$td,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('bg-slate-200 dark:bg-slate-900 dark:text-white')
+										$elm$html$Html$Attributes$class('bg-slate-200 dark:bg-slate-800 dark:text-white')
 									]),
 								_List_fromArray(
 									[
@@ -6321,14 +6909,14 @@ var $author$project$Test$view = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$GenerateRandomNumber, 'Random')
+										A3($author$project$Test$secondaryButton, $author$project$Test$GenerateRandomNumber, 'Random', false)
 									])),
 								A2(
 								$elm$html$Html$td,
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$DarkMode, themeLabel)
+										A3($author$project$Test$secondaryButton, $author$project$Test$DarkMode, themeLabel, false)
 									])),
 								A2(
 								$elm$html$Html$td,
@@ -6378,7 +6966,13 @@ var $author$project$Test$view = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$Divide, '÷')
+										A3(
+										$author$project$Test$secondaryButton,
+										$author$project$Test$DivideMsg,
+										'÷',
+										_Utils_eq(
+											model.selectedOperator,
+											$elm$core$Maybe$Just($author$project$Test$Divide)))
 									]))
 							])),
 						A2(
@@ -6421,7 +7015,13 @@ var $author$project$Test$view = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$Times, 'x')
+										A3(
+										$author$project$Test$secondaryButton,
+										$author$project$Test$TimesMsg,
+										'x',
+										_Utils_eq(
+											model.selectedOperator,
+											$elm$core$Maybe$Just($author$project$Test$Times)))
 									]))
 							])),
 						A2(
@@ -6464,7 +7064,13 @@ var $author$project$Test$view = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$Minus, '-')
+										A3(
+										$author$project$Test$secondaryButton,
+										$author$project$Test$MinusMsg,
+										'-',
+										_Utils_eq(
+											model.selectedOperator,
+											$elm$core$Maybe$Just($author$project$Test$Minus)))
 									]))
 							])),
 						A2(
@@ -6484,21 +7090,27 @@ var $author$project$Test$view = function (model) {
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$Decimal, '.')
+										A3($author$project$Test$secondaryButton, $author$project$Test$Decimal, '.', false)
 									])),
 								A2(
 								$elm$html$Html$td,
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$Equal, '=')
+										A3($author$project$Test$secondaryButton, $author$project$Test$Equal, '=', false)
 									])),
 								A2(
 								$elm$html$Html$td,
 								_List_Nil,
 								_List_fromArray(
 									[
-										A2($author$project$Test$secondaryButton, $author$project$Test$Add, '+')
+										A3(
+										$author$project$Test$secondaryButton,
+										$author$project$Test$AddMsg,
+										'+',
+										_Utils_eq(
+											model.selectedOperator,
+											$elm$core$Maybe$Just($author$project$Test$Add)))
 									]))
 							]))
 					]))

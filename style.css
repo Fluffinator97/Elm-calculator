@@ -6,4 +6,15 @@ body {
   font-family: sans-serif;
   text-align: center;
   font-style: italic;
+  font-size: 2vw;
+}
+
+.target {
+  background-color: rgb(185, 233, 103) !important;
+}
+
+.flex-display {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10rem 0 10rem;
 }

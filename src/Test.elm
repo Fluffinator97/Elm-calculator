@@ -1,67 +1,108 @@
 module Test exposing (main)
 
 import Browser
+import Browser.Events exposing (onClick, onKeyPress)
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
+import Json.Decode as Decode
+import Json.Encode exposing (string)
 import Random
 import String exposing (..)
 import Task
 import Time
 
 
-
--- MODEL
-
-
-type alias Calculator =
-    { add : Float -> Float -> Float
-    , minus : Float -> Float -> Float
-    , times : Float -> Float -> Float
-    , divide : Float -> Float -> Float
-    }
-
-
 type alias Model =
-    { displayValue : String
-    , function : Float -> Float -> Float
+    { total : Float
+    , input : Maybe String
     , lastValue : Maybe Float
+    , selectedOperator : Maybe Operator
     , append : Bool
     , darkTheme : Bool
     , time : Time.Posix
     , zone : Time.Zone
+    , key : String
     }
+
+
+type Operator
+    = Add
+    | Minus
+    | Times
+    | Divide
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { displayValue = ""
-      , function = \x y -> y
+    ( { total = 0
+      , input = Nothing
       , lastValue = Nothing
+      , selectedOperator = Nothing
       , append = True
       , darkTheme = False
       , time = Time.millisToPosix 0
       , zone = Time.utc
+      , key = ""
       }
     , Task.perform AdjustTimeZone Time.here
     )
 
 
-parseFloat : String -> Float
-parseFloat input =
-    Maybe.withDefault 0 (String.toFloat input)
+maybeStringToMaybeFloat : Maybe String -> Maybe Float
+maybeStringToMaybeFloat input =
+    String.toFloat <| Maybe.withDefault "" input
 
 
 
+-- onlyOK: Result err ok -> Maybe ok
+-- onlyOk result =
+--     case result of
+--         Err _ ->
+--             Nothing
+--         Ok ok ->
+--             Just ok
+-- type Result x a
+--     = Ok a
+--     | Err x
+-- Ok : a -> Result x a
+-- Err : x -> Result x a
+
+
+test : Result err ok -> Maybe ok
+test =
+    Result.map
+        Just
+        >> Result.withDefault Nothing
+
+
+
+-- map: ( a -> b ) -> Result x a -> Result x b
+--      ( a -> Maybe b ) -> Result x a -> Result x (Maybe b)
+--      ( a -> b -> c ) -> Result x a -> Result x ( b -> c )
+--      ( hej a -> fisk b ) -> Result (hej a) -> Result x ( fisk b )
+-- a->b->c
+-- Default a->(b->c)
+-- (a->b)->c
+-- make a -> Maybe a
+-- make a =
+--     Just a
+-- make a -> Maybe a
+-- make a =
+--     Nothing
+-- Result.map : (a -> b) -> Result x a -> Result x b
+-- Byt ut symboler vilt försök inte vara smart
+-- Tänk i algebra
+-- Samma sak utan case men Result
 --update
 
 
 type Msg
     = None
-    | Divide
-    | Times
-    | Minus
-    | Add
+    | DivideMsg
+    | TimesMsg
+    | MinusMsg
+    | AddMsg
     | Equal
     | Decimal
     | Zero
@@ -72,31 +113,13 @@ type Msg
     | Tick Time.Posix
     | AdjustTimeZone Time.Zone
     | DarkMode
+    | CharacterKey Char
+    | ControlKey String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
-        operation : (Float -> Float -> Float) -> Model
-        operation function =
-            { model
-                | function = function
-                , lastValue = Just <| parseFloat model.displayValue
-                , append = False
-            }
-
-        calculator : Calculator
-        calculator =
-            { add = \x y -> x + y
-            , minus = \x y -> x - y
-            , times = \x y -> x * y
-            , divide = \x y -> x / y
-            }
-
-        calculate : String
-        calculate =
-            model.function (Maybe.withDefault 0 model.lastValue) (parseFloat model.displayValue) |> String.fromFloat
-
         appendDecimal : String -> String
         appendDecimal string =
             if String.contains "." string then
@@ -110,60 +133,113 @@ update msg model =
             ( model, Cmd.none )
 
         Clear ->
-            ( { model | displayValue = "", lastValue = Nothing }, Cmd.none )
+            ( { model | total = 0, lastValue = Nothing, input = Nothing }, Cmd.none )
 
         Number number ->
             if model.append then
-                ( { model | displayValue = model.displayValue ++ String.fromInt number }, Cmd.none )
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ String.fromInt number, total = 0 }, Cmd.none )
 
             else
-                ( { model | displayValue = String.fromInt number, append = True }, Cmd.none )
+                ( { model | input = Just <| String.fromInt number, append = True, total = 0 }, Cmd.none )
 
         Decimal ->
-            if not (String.isEmpty model.displayValue) && model.append then
-                ( { model | displayValue = appendDecimal model.displayValue }, Cmd.none )
+            if not (String.isEmpty (Maybe.withDefault "" model.input)) && model.append then
+                ( { model | input = Just <| appendDecimal <| Maybe.withDefault "" model.input }, Cmd.none )
 
             else
-                ( { model | displayValue = "0.", append = True }, Cmd.none )
+                ( { model | input = Just "0.", append = True }, Cmd.none )
 
         Zero ->
-            if String.isEmpty model.displayValue || not model.append then
+            if String.isEmpty (Maybe.withDefault "" model.input) || not model.append then
                 ( { model
-                    | displayValue = "0"
+                    | input = Just "0"
                     , append = False
                   }
                 , Cmd.none
                 )
 
             else
-                ( { model | displayValue = model.displayValue ++ "0" }, Cmd.none )
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "0" }, Cmd.none )
 
-        Divide ->
-            ( operation calculator.divide, Cmd.none )
+        DivideMsg ->
+            ( { model
+                | selectedOperator = Just Divide
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
 
-        Times ->
-            ( operation calculator.times, Cmd.none )
+        TimesMsg ->
+            ( { model
+                | selectedOperator = Just Times
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
 
-        Minus ->
-            ( operation calculator.minus, Cmd.none )
+        MinusMsg ->
+            ( { model
+                | selectedOperator = Just Minus
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
 
-        Add ->
-            ( operation calculator.add, Cmd.none )
+        AddMsg ->
+            ( { model
+                | selectedOperator = Just Add
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
 
         Equal ->
+            let
+                lastValue =
+                    Maybe.withDefault 0 model.lastValue
+
+                input =
+                    Maybe.withDefault 0 <| maybeStringToMaybeFloat model.input
+
+                sum =
+                    case model.selectedOperator of
+                        Nothing ->
+                            0
+
+                        Just Add ->
+                            lastValue + input
+
+                        Just Minus ->
+                            lastValue - input
+
+                        Just Times ->
+                            lastValue * input
+
+                        Just Divide ->
+                            lastValue / input
+            in
             if model.append then
                 ( { model
-                    | displayValue = calculate
-                    , lastValue = Just <| parseFloat model.displayValue
+                    | total = sum
                     , append = False
+                    , selectedOperator = Nothing
+                    , lastValue = Nothing
+                    , input = Nothing
                   }
                 , Cmd.none
                 )
 
             else
                 ( { model
-                    | displayValue = calculate
+                    | total = sum
                     , append = False
+                    , selectedOperator = Nothing
+                    , lastValue = Nothing
+                    , input = Nothing
                   }
                 , Cmd.none
                 )
@@ -174,8 +250,8 @@ update msg model =
 
         RandomNumber number ->
             ( { model
-                | displayValue = String.fromInt number
-                , lastValue = Just <| parseFloat model.displayValue
+                | input = Just <| String.fromInt number
+                , lastValue = maybeStringToMaybeFloat model.input
                 , append = False
               }
             , Cmd.none
@@ -211,14 +287,188 @@ update msg model =
             , Cmd.none
             )
 
+        CharacterKey '1' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "1", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 1, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '2' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "2", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 2, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '3' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "3", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 3, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '4' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "4", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 4, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '5' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "5", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 5, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '6' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "6", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 6, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '7' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "7", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 7, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '8' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "8", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 8, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '9' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "9", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 9, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '0' ->
+            if model.append then
+                ( { model | input = Just <| Maybe.withDefault "" model.input ++ "0", total = 0 }, Cmd.none )
+
+            else
+                ( { model | input = Just <| String.fromInt 0, append = True, total = 0 }, Cmd.none )
+
+        CharacterKey '*' ->
+            ( { model
+                | selectedOperator = Just Times
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
+
+        CharacterKey '/' ->
+            ( { model
+                | selectedOperator = Just Divide
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
+
+        CharacterKey '+' ->
+            ( { model
+                | selectedOperator = Just Add
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
+        CharacterKey '-' ->
+            ( { model
+                | selectedOperator = Just Minus
+                , lastValue = maybeStringToMaybeFloat model.input
+                , append = False
+              }
+            , Cmd.none
+            )
+
+        ControlKey "Enter" ->
+            let
+                lastValue =
+                    Maybe.withDefault 0 model.lastValue
+
+                input =
+                    Maybe.withDefault 0 <| maybeStringToMaybeFloat model.input
+
+                sum =
+                    case model.selectedOperator of
+                        Nothing ->
+                            0
+
+                        Just Add ->
+                            lastValue + input
+
+                        Just Minus ->
+                            lastValue - input
+
+                        Just Times ->
+                            lastValue * input
+
+                        Just Divide ->
+                            lastValue / input
+            in
+            if model.append then
+                ( { model
+                    | total = sum
+                    , append = False
+                    , selectedOperator = Nothing
+                    , lastValue = Nothing
+                    , input = Nothing
+                  }
+                , Cmd.none
+                )
+
+            else
+                ( { model
+                    | total = sum
+                    , append = False
+                    , selectedOperator = Nothing
+                    , lastValue = Nothing
+                    , input = Nothing
+                  }
+                , Cmd.none
+                )
+        
+
+        _ ->
+            ( model, Cmd.none )
 
 
--- SUBSCRIPTIONS
+toKey : String -> Msg
+toKey keyValue =
+    case String.uncons keyValue of
+        Just ( char, "" ) ->
+            CharacterKey char
+
+        _ ->
+            ControlKey keyValue
+
+
+keyDecoder : Decode.Decoder Msg
+keyDecoder =
+    Decode.map toKey (Decode.field "key" Decode.string)
+
+
+
+-- SUBSCRIPTION
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    Time.every 1000 Tick
+subscriptions _ =
+    Sub.batch
+        [ Time.every 1000 Tick
+        , Browser.Events.onKeyPress keyDecoder
+        ]
 
 
 
@@ -228,7 +478,7 @@ subscriptions model =
 primaryButton : Msg -> String -> Html Msg
 primaryButton onClick label =
     Html.button
-        [ Html.Attributes.class "button number w-full p-10 bg-slate-100 dark:bg-slate-600 h-full dark:text-white"
+        [ Html.Attributes.class "button number w-full bg-slate-100 dark:bg-slate-600 h-full dark:text-white"
         , Html.Events.onClick onClick
         ]
         [ Html.span
@@ -237,10 +487,13 @@ primaryButton onClick label =
         ]
 
 
-secondaryButton : Msg -> String -> Html Msg
-secondaryButton onClick label =
+secondaryButton : Msg -> String -> Bool -> Html Msg
+secondaryButton onClick label isTarget =
     Html.button
-        [ Html.Attributes.class "button operator w-full p-10 bg-slate-200 dark:bg-slate-900 h-full dark:text-white"
+        [ Html.Attributes.classList
+            [ ( "button operator w-full bg-slate-200 dark:bg-slate-800 h-full dark:text-white ", True )
+            , ( "target", isTarget )
+            ]
         , Html.Events.onClick onClick
         ]
         [ Html.span
@@ -252,7 +505,7 @@ secondaryButton onClick label =
 clearButton : Msg -> String -> Html Msg
 clearButton onClick label =
     Html.button
-        [ Html.Attributes.class "button operator w-full p-10 bg-slate-200 dark:bg-slate-900 h-full dark:text-white"
+        [ Html.Attributes.class "button operator w-full bg-slate-200 dark:bg-slate-800 h-full dark:text-white"
         , Html.Events.onClick onClick
         ]
         [ Html.span
@@ -276,16 +529,16 @@ view model =
         themeLabel =
             if model.darkTheme then
                 "Light Mode"
+
             else
                 "Dark Mode"
-                         
     in
     Html.table
         [ Html.Attributes.classList
-                [ ( "table-fixed w-full h-screen", True )
-                , ( "dark", model.darkTheme )
-                ]
-         ]
+            [ ( "table-fixed w-full h-screen border-collapse", True )
+            , ( "dark bg-zinc-900", model.darkTheme )
+            ]
+        ]
         [ Html.thead
             []
             [ Html.tr
@@ -294,17 +547,38 @@ view model =
                     [ Html.div
                         [ Html.Attributes.class "display" ]
                         [ Html.div
-                            [ Html.Attributes.class "display-text h-20 bg-slate-200 dark:bg-slate-600 dark:text-white" ]
-                            [ case model.lastValue of
-                                    Nothing ->
-                                        Html.text ""
-                                    Just lastValue->
-                                        Html.text  <| String.fromFloat lastValue
-
-                                 ]
+                            [ Html.Attributes.class "display-text h-20 bg-slate-200 dark:bg-slate-500 dark:text-white flex-display" ]
+                            [ Html.div
+                                []
+                                [ Html.text "Result "
+                                ]
+                            , Html.div
+                                []
+                                [ Html.text <| String.fromFloat model.total
+                                ]
+                            ]
                         , Html.div
-                            [ Html.Attributes.class "display-text h-20 bg-slate-200 dark:bg-slate-600 dark:text-white" ]
-                            [ Html.text model.displayValue ]
+                            [ Html.Attributes.class "display-text h-20 bg-slate-300 dark:bg-slate-600 dark:text-white flex-display" ]
+                            [ Html.div
+                                []
+                                [ Html.text "Last Value "
+                                ]
+                            , Html.div
+                                []
+                                [ Html.text <| String.fromFloat (Maybe.withDefault 0 model.lastValue)
+                                ]
+                            ]
+                        , Html.div
+                            [ Html.Attributes.class "display-text h-20 bg-slate-400 dark:bg-slate-700 dark:text-white flex-display" ]
+                            [ Html.div
+                                []
+                                [ Html.text "Input "
+                                ]
+                            , Html.div
+                                []
+                                [ Html.text <| Maybe.withDefault "0" model.input
+                                ]
+                            ]
                         ]
                     ]
                 ]
@@ -314,15 +588,14 @@ view model =
             [ Html.tr
                 []
                 [ Html.td
-                    [ Html.Attributes.class "bg-slate-200 dark:bg-slate-900 dark:text-white" ]
+                    [ Html.Attributes.class "bg-slate-200 dark:bg-slate-800 dark:text-white" ]
                     [ Html.h1 [] [ Html.text (hour ++ ":" ++ minute ++ ":" ++ second) ] ]
                 , Html.td
                     []
-                    [ secondaryButton GenerateRandomNumber "Random" ]
+                    [ secondaryButton GenerateRandomNumber "Random" False ]
                 , Html.td
                     []
-                    [ secondaryButton DarkMode themeLabel ]
-                        
+                    [ secondaryButton DarkMode themeLabel False ]
                 , Html.td
                     []
                     [ clearButton Clear "Clear" ]
@@ -340,7 +613,7 @@ view model =
                     [ primaryButton (Number 9) "9" ]
                 , Html.td
                     []
-                    [ secondaryButton Divide "÷" ]
+                    [ secondaryButton DivideMsg "÷" <| model.selectedOperator == Just Divide ]
                 ]
             , Html.tr
                 []
@@ -355,7 +628,7 @@ view model =
                     [ primaryButton (Number 6) "6" ]
                 , Html.td
                     []
-                    [ secondaryButton Times "x" ]
+                    [ secondaryButton TimesMsg "x" <| model.selectedOperator == Just Times ]
                 ]
             , Html.tr
                 []
@@ -370,7 +643,7 @@ view model =
                     [ primaryButton (Number 3) "3" ]
                 , Html.td
                     []
-                    [ secondaryButton Minus "-" ]
+                    [ secondaryButton MinusMsg "-" <| model.selectedOperator == Just Minus ]
                 ]
             , Html.tr
                 []
@@ -379,13 +652,13 @@ view model =
                     [ primaryButton Zero "0" ]
                 , Html.td
                     []
-                    [ secondaryButton Decimal "." ]
+                    [ secondaryButton Decimal "." False ]
                 , Html.td
                     []
-                    [ secondaryButton Equal "=" ]
+                    [ secondaryButton Equal "=" False ]
                 , Html.td
                     []
-                    [ secondaryButton Add "+" ]
+                    [ secondaryButton AddMsg "+" <| model.selectedOperator == Just Add ]
                 ]
             ]
         ]
